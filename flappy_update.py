@@ -80,7 +80,7 @@ def pipe_score_check():
 
 #pygame.mixer.pre_init(frequency = 44100, size = 16, channels = 2, buffer = 1024)
 pygame.init()
-screen = pygame.display.set_mode((576,1024))
+screen = pygame.display.set_mode((960,1024))
 clock = pygame.time.Clock()
 game_font = pygame.font.Font('04B_19.ttf',40)
 
