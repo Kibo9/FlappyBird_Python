@@ -1,4 +1,4 @@
-import pygame, sys, random 
+import pygame, sys, random
 
 def draw_road():
     screen.blit(road_surface, (road_x_pos, 0))  # The road takes up the whole screen
@@ -10,9 +10,16 @@ def create_obstacle():
     return obstacle
 
 def move_obstacles(obstacles):
+    global score
     for obstacle in obstacles:
-        obstacle.centerx -= 5  # Move obstacles left
-    visible_obstacles = [obstacle for obstacle in obstacles if obstacle.right > -50]  # Remove offscreen obstacles
+        obstacle.centerx -= obstacle_speed  # Move obstacles left with variable speed
+    # Check if an obstacle has moved offscreen, and increase score if so
+    visible_obstacles = []
+    for obstacle in obstacles:
+        if obstacle.right > -50:
+            visible_obstacles.append(obstacle)
+        else:
+            score += 1  # Increase score by 1 when an obstacle moves offscreen
     return visible_obstacles
 
 def draw_obstacles(obstacles):
@@ -55,14 +62,29 @@ def rotate_car():
     car_surface_rotated = pygame.transform.rotozoom(car_surface, -car_movement_angle, 1)  # Rotate the car sprite
 
 def draw_boundaries():
-    # Draw semi-transparent black rectangles at the top and bottom 150 pixels of the screen
     pygame.draw.rect(screen, (0, 0, 0, 180), pygame.Rect(0, 0, 1600, 150))  # Top boundary
     pygame.draw.rect(screen, (0, 0, 0, 180), pygame.Rect(0, 750, 1600, 150))  # Bottom boundary
+
+def display_score():
+    score_surface = game_font.render(f'Score: {score}', True, (255, 255, 255))
+    score_rect = score_surface.get_rect(center=(800, 50))
+    screen.blit(score_surface, score_rect)
+
+def display_game_over():
+    game_over_surface = game_font.render('Game Over! Press Enter to Restart', True, (255, 255, 255))
+    game_over_rect = game_over_surface.get_rect(center=(800, 450))
+    screen.blit(game_over_surface, game_over_rect)
+
+def display_start_screen():
+    start_surface = game_font.render('Press Enter to Start', True, (255, 255, 255))
+    start_rect = start_surface.get_rect(center=(800, 450))
+    screen.blit(start_surface, start_rect)
 
 # Initialize pygame
 pygame.init()
 screen = pygame.display.set_mode((1600, 900))  # Screen size: 1600x900
 clock = pygame.time.Clock()
+game_font = pygame.font.Font('freesansbold.ttf', 40)  # Font for displaying score and game over text
 
 # Load road background
 road_surface = pygame.image.load('assets/road.png').convert()
@@ -91,10 +113,15 @@ lane_positions = [250, 350, 450, 550, 650]  # Lanes from y=150 to y=750
 
 # Load sounds
 crash_sound = pygame.mixer.Sound('sound/crash.wav')
+honk_sound = pygame.mixer.Sound('sound/honk.wav')
+pygame.mixer.music.load('sound/background_music.wav')
+pygame.mixer.music.play(-1)  # Play background music in a loop
 
 # Game variables
-game_active = True
+game_active = False  # Start with the start screen
 keys = pygame.key.get_pressed()
+score = 0
+obstacle_speed = 5  # Initial speed of obstacles
 
 while True:
     for event in pygame.event.get():
@@ -102,19 +129,26 @@ while True:
             pygame.quit()
             sys.exit()
 
-        if event.type == pygame.KEYDOWN and game_active == False:
-            game_active = True
-            obstacle_list.clear()
-            car_rect.center = (200, 450)  # Reset car position to the middle lane
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                if not game_active:  # Start the game from the start screen or after game over
+                    game_active = True
+                    obstacle_list.clear()
+                    car_rect.center = (200, 450)  # Reset car position to the middle lane
+                    score = 0  # Reset score
+                    obstacle_speed = 5  # Reset speed
 
-        if event.type == SPAWN_OBSTACLE:
+            if event.key == pygame.K_h:  # Honk when the 'H' key is pressed
+                honk_sound.play()
+
+        if event.type == SPAWN_OBSTACLE and game_active:
             obstacle_list.append(create_obstacle())
 
     keys = pygame.key.get_pressed()
 
     if game_active:
         # Move road and obstacles
-        road_x_pos -= 5  # Adjust speed
+        road_x_pos -= obstacle_speed  # Speed increases with score
         draw_road()
         if road_x_pos <= -1600:  # Loop the road
             road_x_pos = 0
@@ -135,6 +169,20 @@ while True:
 
         # Draw boundaries to indicate non-playable area
         draw_boundaries()
+
+        # Display score
+        display_score()
+
+        # Gradually increase obstacle speed as the score increases, but slower
+        obstacle_speed = 5 + score // 20  # Slower speed increase every 20 points
+
+    else:
+        if score == 0:
+            # Display start screen
+            display_start_screen()
+        else:
+            # Display game over screen
+            display_game_over()
 
     pygame.display.update()
     clock.tick(120)
