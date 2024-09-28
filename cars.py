@@ -13,7 +13,6 @@ def move_obstacles(obstacles):
     global score
     for obstacle in obstacles:
         obstacle.centerx -= obstacle_speed  # Move obstacles left with variable speed
-    # Check if an obstacle has moved offscreen, and increase score if so
     visible_obstacles = []
     for obstacle in obstacles:
         if obstacle.right > -50:
@@ -38,10 +37,10 @@ def car_movement():
     
     car_movement_direction = 0  # Reset direction before checking input
     
-    if keys[pygame.K_UP] and car_rect.top > 150:  # Top limit (150)
+    if keys[pygame.K_UP] and car_rect.top > 150:  # Restrict movement to stay above the top non-playable area
         car_rect.centery -= 10
         car_movement_direction = -1  # Moving up
-    if keys[pygame.K_DOWN] and car_rect.bottom < 750:  # Bottom limit (750)
+    if keys[pygame.K_DOWN] and car_rect.bottom < 750:  # Restrict movement to stay below the bottom non-playable area
         car_rect.centery += 10
         car_movement_direction = 1  # Moving down
 
@@ -60,10 +59,6 @@ def rotate_car():
 
     # Rotate the car image based on the movement angle
     car_surface_rotated = pygame.transform.rotozoom(car_surface, -car_movement_angle, 1)  # Rotate the car sprite
-
-def draw_boundaries():
-    pygame.draw.rect(screen, (0, 0, 0, 180), pygame.Rect(0, 0, 1600, 150))  # Top boundary
-    pygame.draw.rect(screen, (0, 0, 0, 180), pygame.Rect(0, 750, 1600, 150))  # Bottom boundary
 
 def display_score():
     score_surface = game_font.render(f'Score: {score}', True, (255, 255, 255))
@@ -166,9 +161,6 @@ while True:
 
         # Check for collisions
         game_active = check_collision(obstacle_list)
-
-        # Draw boundaries to indicate non-playable area
-        draw_boundaries()
 
         # Display score
         display_score()
