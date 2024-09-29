@@ -66,20 +66,31 @@ def display_score():
     screen.blit(score_surface, score_rect)
 
 def display_game_over():
-    game_over_surface = game_font.render('Game Over! Press Enter to Restart', True, (255, 255, 255))
+    game_over_surface = game_font.render('Game Over! Press Enter to Return to Title', True, (255, 255, 255))
     game_over_rect = game_over_surface.get_rect(center=(800, 450))
     screen.blit(game_over_surface, game_over_rect)
 
 def display_start_screen():
+    # Title: Cosmic Highway
+    title_surface = game_font.render('Cosmic Highway', True, (255, 255, 255))
+    title_rect = title_surface.get_rect(center=(800, 300))
+    screen.blit(title_surface, title_rect)
+
+    # Instructions to start
     start_surface = game_font.render('Press Enter to Start', True, (255, 255, 255))
-    start_rect = start_surface.get_rect(center=(800, 450))
+    start_rect = start_surface.get_rect(center=(800, 500))
     screen.blit(start_surface, start_rect)
+
+    # Display the high score
+    high_score_surface = game_font.render(f'High Score: {high_score}', True, (255, 255, 255))
+    high_score_rect = high_score_surface.get_rect(center=(800, 400))
+    screen.blit(high_score_surface, high_score_rect)
 
 # Initialize pygame
 pygame.init()
 screen = pygame.display.set_mode((1600, 900))  # Screen size: 1600x900
 clock = pygame.time.Clock()
-game_font = pygame.font.Font('freesansbold.ttf', 40)  # Font for displaying score and game over text
+game_font = pygame.font.Font('Moonstrike-nRqzP.otf', 40)  # Font for displaying score and game over text
 
 # Load road background
 road_surface = pygame.image.load('assets/road.png').convert()
@@ -114,8 +125,10 @@ pygame.mixer.music.play(-1)  # Play background music in a loop
 
 # Game variables
 game_active = False  # Start with the start screen
+on_game_over_screen = False  # Track if we're on the game over screen
 keys = pygame.key.get_pressed()
 score = 0
+high_score = 0  # Initialize high score
 obstacle_speed = 5  # Initial speed of obstacles
 
 while True:
@@ -126,7 +139,11 @@ while True:
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
-                if not game_active:  # Start the game from the start screen or after game over
+                if on_game_over_screen:  # From game over to start screen
+                    on_game_over_screen = False
+                    game_active = False  # Return to start screen
+
+                elif not game_active:  # Start the game from the start screen
                     game_active = True
                     obstacle_list.clear()
                     car_rect.center = (200, 450)  # Reset car position to the middle lane
@@ -141,20 +158,20 @@ while True:
 
     keys = pygame.key.get_pressed()
 
+    # Move road regardless of game state
+    road_x_pos -= obstacle_speed  # Speed increases with score
+    draw_road()
+    if road_x_pos <= -1600:  # Loop the road
+        road_x_pos = 0
+
+    # Car moves even on start screen (no obstacles spawned yet)
+    car_movement()
+
+    # Rotate the car based on its movement
+    rotate_car()
+    screen.blit(car_surface_rotated, car_rect)
+
     if game_active:
-        # Move road and obstacles
-        road_x_pos -= obstacle_speed  # Speed increases with score
-        draw_road()
-        if road_x_pos <= -1600:  # Loop the road
-            road_x_pos = 0
-
-        # Player car movement
-        car_movement()
-
-        # Rotate the car based on its movement
-        rotate_car()
-        screen.blit(car_surface_rotated, car_rect)
-
         # Obstacle movement
         obstacle_list = move_obstacles(obstacle_list)
         draw_obstacles(obstacle_list)
@@ -168,13 +185,17 @@ while True:
         # Gradually increase obstacle speed as the score increases, but slower
         obstacle_speed = 5 + score // 20  # Slower speed increase every 20 points
 
+        # Update high score when the game ends
+        if not game_active:
+            on_game_over_screen = True  # Switch to game over screen
+            if score > high_score:
+                high_score = score
+
+    elif on_game_over_screen:
+        display_game_over()
+
     else:
-        if score == 0:
-            # Display start screen
-            display_start_screen()
-        else:
-            # Display game over screen
-            display_game_over()
+        display_start_screen()  # Show the start screen
 
     pygame.display.update()
     clock.tick(120)
