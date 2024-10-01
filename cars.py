@@ -1,64 +1,75 @@
 import pygame, sys, random
 
 def draw_road():
-    screen.blit(road_surface, (road_x_pos, 0))  # The road takes up the whole screen
-    screen.blit(road_surface, (road_x_pos + 1600, 0))  # Loop the road
+    screen.blit(road_surface, (road_x_pos, 0))
+    screen.blit(road_surface, (road_x_pos + 1600, 0))
 
-def create_obstacle():
+def draw_obstacle():
     random_lane = random.choice(lane_positions)
-    obstacle = obstacle_surface.get_rect(midbottom=(random.randint(1700, 1900), random_lane))  # Spawn offscreen
-    return obstacle
+    
+    if random.random() < 0.2:  # 20% chance for truck with trailer
+        random_truck = random.choice(truck_surfaces)
+        trailer = trailer_surface.get_rect(midbottom=(random.randint(1700, 1900), random_lane))
+        truck = random_truck.get_rect(midbottom=(trailer.right + 140, random_lane))
+        return [(trailer_surface, trailer), (random_truck, truck)]
+    else:
+        random_car = random.choice(obstacle_surfaces)
+        obstacle = random_car.get_rect(midbottom=(random.randint(1700, 1900), random_lane))
+        return [(random_car, obstacle)]
 
 def move_obstacles(obstacles):
     global score
-    for obstacle in obstacles:
-        obstacle.centerx -= obstacle_speed  # Move obstacles left with variable speed
+    for parts in obstacles:
+        for car_surface, obstacle in parts:
+            obstacle.centerx -= obstacle_speed
     visible_obstacles = []
-    for obstacle in obstacles:
-        if obstacle.right > -50:
-            visible_obstacles.append(obstacle)
+    for parts in obstacles:
+        parts_visible = []
+        for car_surface, obstacle in parts:
+            if obstacle.right > -50:
+                parts_visible.append((car_surface, obstacle))
+        if parts_visible:
+            visible_obstacles.append(parts_visible)
         else:
-            score += 1  # Increase score by 1 when an obstacle moves offscreen
+            score += 1
     return visible_obstacles
 
 def draw_obstacles(obstacles):
-    for obstacle in obstacles:
-        screen.blit(obstacle_surface, obstacle)
+    for parts in obstacles:
+        for car_surface, obstacle in parts:
+            screen.blit(car_surface, obstacle)
 
 def check_collision(obstacles):
-    for obstacle in obstacles:
-        if car_rect.colliderect(obstacle):
-            crash_sound.play()
-            return False
+    for parts in obstacles:
+        for car_surface, obstacle in parts:
+            if car_rect.colliderect(obstacle):
+                crash_sound.play()
+                return False
     return True
 
 def car_movement():
     global car_movement_direction, car_movement_angle
-    
-    car_movement_direction = 0  # Reset direction before checking input
-    
-    if keys[pygame.K_UP] and car_rect.top > 150:  # Restrict movement to stay above the top non-playable area
+    car_movement_direction = 0
+    if keys[pygame.K_UP] and car_rect.top > 150:
         car_rect.centery -= 10
-        car_movement_direction = -1  # Moving up
-    if keys[pygame.K_DOWN] and car_rect.bottom < 750:  # Restrict movement to stay below the bottom non-playable area
+        car_movement_direction = -1
+    if keys[pygame.K_DOWN] and car_rect.bottom < 750:
         car_rect.centery += 10
-        car_movement_direction = 1  # Moving down
+        car_movement_direction = 1
 
 def rotate_car():
     global car_surface_rotated, car_movement_angle
-    
-    if car_movement_direction == -1:  # Car is moving up
-        car_movement_angle = max(car_movement_angle - 1, -10)  # Tilt up to -10 degrees
-    elif car_movement_direction == 1:  # Car is moving down
-        car_movement_angle = min(car_movement_angle + 1, 10)  # Tilt down to 10 degrees
+    if car_movement_direction == -1:
+        car_movement_angle = max(car_movement_angle - 1, -10)
+    elif car_movement_direction == 1:
+        car_movement_angle = min(car_movement_angle + 1, 10)
     else:
         if car_movement_angle > 0:
-            car_movement_angle -= 1  # Gradually return to horizontal position
+            car_movement_angle -= 1
         elif car_movement_angle < 0:
             car_movement_angle += 1
 
-    # Rotate the car image based on the movement angle
-    car_surface_rotated = pygame.transform.rotozoom(car_surface, -car_movement_angle, 1)  # Rotate the car sprite
+    car_surface_rotated = pygame.transform.rotozoom(car_surface, -car_movement_angle, 1)
 
 def display_score():
     score_surface = game_font.render(f'Score: {score}', True, (255, 255, 255))
@@ -71,65 +82,66 @@ def display_game_over():
     screen.blit(game_over_surface, game_over_rect)
 
 def display_start_screen():
-    # Title: Cosmic Highway
     title_surface = game_font.render('Cosmic Highway', True, (255, 255, 255))
     title_rect = title_surface.get_rect(center=(800, 300))
     screen.blit(title_surface, title_rect)
 
-    # Instructions to start
     start_surface = game_font.render('Press Enter to Start', True, (255, 255, 255))
     start_rect = start_surface.get_rect(center=(800, 500))
     screen.blit(start_surface, start_rect)
 
-    # Display the high score
     high_score_surface = game_font.render(f'High Score: {high_score}', True, (255, 255, 255))
     high_score_rect = high_score_surface.get_rect(center=(800, 400))
     screen.blit(high_score_surface, high_score_rect)
 
-# Initialize pygame
 pygame.init()
-screen = pygame.display.set_mode((1600, 900))  # Screen size: 1600x900
+screen = pygame.display.set_mode((1600, 900))
 clock = pygame.time.Clock()
-game_font = pygame.font.Font('Moonstrike-nRqzP.otf', 40)  # Font for displaying score and game over text
+game_font = pygame.font.Font('Moonstrike-nRqzP.otf', 40)
 
-# Load road background
 road_surface = pygame.image.load('assets/road.png').convert()
-road_surface = pygame.transform.scale(road_surface, (1600, 900))  # Road image will now take up the entire screen
+road_surface = pygame.transform.scale(road_surface, (1600, 900))
 road_x_pos = 0
 
-# Load player car (120x60 pixels)
 car_surface = pygame.image.load('assets/player_car.png').convert_alpha()
-car_surface = pygame.transform.scale(car_surface, (120, 60))  # Adjust player car size to 120x60
-car_rect = car_surface.get_rect(center=(200, 450))  # Center the car on the road
+car_surface = pygame.transform.scale(car_surface, (120, 60))
+car_rect = car_surface.get_rect(center=(200, 450))
 
-# Rotation variables
 car_surface_rotated = car_surface
-car_movement_angle = 0  # Initial angle is 0 (no rotation)
-car_movement_direction = 0  # -1 for up, 1 for down, 0 for no vertical movement
+car_movement_angle = 0
+car_movement_direction = 0
 
-# Load obstacle cars (120x60 pixels)
-obstacle_surface = pygame.image.load('assets/obstacle_car.png').convert_alpha()
-obstacle_surface = pygame.transform.scale(obstacle_surface, (120, 60))  # Adjust obstacle car size to 120x60
+obstacle_surfaces = [pygame.image.load(f'assets/{car}.png').convert_alpha() for car in
+                     ['compact_blue', 'compact_green', 'compact_orange', 'compact_red',
+                      'coupe_midnight', 'coupe_green', 'coupe_blue', 'coupe_red',
+                      'sedan_blue', 'sedan_gray', 'sedan_green', 'sedan_red',
+                      'sport_blue', 'sport_green', 'sport_red', 'sport_yellow']]
+obstacle_surfaces = [pygame.transform.scale(car, (120, 60)) for car in obstacle_surfaces]
+
+truck_surfaces = [pygame.image.load(f'assets/truck_{color}.png').convert_alpha() for color in
+                  ['blue', 'cream', 'green', 'red']]
+truck_surfaces = [pygame.transform.scale(truck, (200, 90)) for truck in truck_surfaces]
+
+trailer_surface = pygame.image.load('assets/trailer.png').convert_alpha()
+trailer_surface = pygame.transform.scale(trailer_surface, (160, 90))
+
 obstacle_list = []
 SPAWN_OBSTACLE = pygame.USEREVENT
 pygame.time.set_timer(SPAWN_OBSTACLE, 1200)
 
-# Lanes (evenly spaced in the 600-pixel road area)
-lane_positions = [250, 350, 450, 550, 650]  # Lanes from y=150 to y=750
+lane_positions = [250, 350, 450, 550, 650]
 
-# Load sounds
 crash_sound = pygame.mixer.Sound('sound/crash.wav')
 honk_sound = pygame.mixer.Sound('sound/honk.wav')
 pygame.mixer.music.load('sound/background_music.wav')
-pygame.mixer.music.play(-1)  # Play background music in a loop
+pygame.mixer.music.play(-1)
 
-# Game variables
-game_active = False  # Start with the start screen
-on_game_over_screen = False  # Track if we're on the game over screen
+game_active = False
+on_game_over_screen = False
 keys = pygame.key.get_pressed()
 score = 0
-high_score = 0  # Initialize high score
-obstacle_speed = 5  # Initial speed of obstacles
+high_score = 0
+obstacle_speed = 5
 
 while True:
     for event in pygame.event.get():
@@ -139,55 +151,45 @@ while True:
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
-                if on_game_over_screen:  # From game over to start screen
+                if on_game_over_screen:
                     on_game_over_screen = False
-                    game_active = False  # Return to start screen
-
-                elif not game_active:  # Start the game from the start screen
+                    game_active = False
+                elif not game_active:
                     game_active = True
                     obstacle_list.clear()
-                    car_rect.center = (200, 450)  # Reset car position to the middle lane
-                    score = 0  # Reset score
-                    obstacle_speed = 5  # Reset speed
+                    car_rect.center = (200, 450)
+                    score = 0
+                    obstacle_speed = 5
 
-            if event.key == pygame.K_h:  # Honk when the 'H' key is pressed
+            if event.key == pygame.K_h:
                 honk_sound.play()
 
         if event.type == SPAWN_OBSTACLE and game_active:
-            obstacle_list.append(create_obstacle())
+            obstacle_list.append(draw_obstacle())
 
     keys = pygame.key.get_pressed()
 
-    # Move road regardless of game state
-    road_x_pos -= obstacle_speed  # Speed increases with score
+    road_x_pos -= obstacle_speed
     draw_road()
-    if road_x_pos <= -1600:  # Loop the road
+    if road_x_pos <= -1600:
         road_x_pos = 0
 
-    # Car moves even on start screen (no obstacles spawned yet)
     car_movement()
-
-    # Rotate the car based on its movement
     rotate_car()
     screen.blit(car_surface_rotated, car_rect)
 
     if game_active:
-        # Obstacle movement
         obstacle_list = move_obstacles(obstacle_list)
         draw_obstacles(obstacle_list)
 
-        # Check for collisions
         game_active = check_collision(obstacle_list)
 
-        # Display score
         display_score()
 
-        # Gradually increase obstacle speed as the score increases, but slower
-        obstacle_speed = 5 + score // 20  # Slower speed increase every 20 points
+        obstacle_speed = 5 + score // 5
 
-        # Update high score when the game ends
         if not game_active:
-            on_game_over_screen = True  # Switch to game over screen
+            on_game_over_screen = True
             if score > high_score:
                 high_score = score
 
@@ -195,7 +197,7 @@ while True:
         display_game_over()
 
     else:
-        display_start_screen()  # Show the start screen
+        display_start_screen()
 
     pygame.display.update()
-    clock.tick(120)
+    clock.tick(60)
