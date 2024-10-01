@@ -10,7 +10,7 @@ def draw_obstacle():
     if random.random() < 0.2:  # 20% chance for truck with trailer
         random_truck = random.choice(truck_surfaces)
         trailer = trailer_surface.get_rect(midbottom=(random.randint(1700, 1900), random_lane))
-        truck = random_truck.get_rect(midbottom=(trailer.right + 140, random_lane))
+        truck = random_truck.get_rect(midbottom=(trailer.right + 30, random_lane))
         return [(trailer_surface, trailer), (random_truck, truck)]
     else:
         random_car = random.choice(obstacle_surfaces)
@@ -26,7 +26,7 @@ def move_obstacles(obstacles):
     for parts in obstacles:
         parts_visible = []
         for car_surface, obstacle in parts:
-            if obstacle.right > -50:
+            if obstacle.right > -10:
                 parts_visible.append((car_surface, obstacle))
         if parts_visible:
             visible_obstacles.append(parts_visible)
@@ -120,16 +120,16 @@ obstacle_surfaces = [pygame.transform.scale(car, (120, 60)) for car in obstacle_
 
 truck_surfaces = [pygame.image.load(f'assets/truck_{color}.png').convert_alpha() for color in
                   ['blue', 'cream', 'green', 'red']]
-truck_surfaces = [pygame.transform.scale(truck, (200, 90)) for truck in truck_surfaces]
+truck_surfaces = [pygame.transform.scale(truck, (60, 60)) for truck in truck_surfaces]
 
 trailer_surface = pygame.image.load('assets/trailer.png').convert_alpha()
-trailer_surface = pygame.transform.scale(trailer_surface, (160, 90))
+trailer_surface = pygame.transform.scale(trailer_surface, (240, 60))
 
 obstacle_list = []
 SPAWN_OBSTACLE = pygame.USEREVENT
 pygame.time.set_timer(SPAWN_OBSTACLE, 1200)
 
-lane_positions = [250, 350, 450, 550, 650]
+lane_positions = [230, 330, 430, 530, 630, 730]
 
 crash_sound = pygame.mixer.Sound('sound/crash.wav')
 honk_sound = pygame.mixer.Sound('sound/honk.wav')
