@@ -1,21 +1,40 @@
 import pygame, sys, random
 
 def draw_road():
-    screen.blit(road_surface, (road_x_pos, 0))
-    screen.blit(road_surface, (road_x_pos + 1600, 0))
+    screen.blit(road_surface, (road_x_pos, 150))
+    screen.blit(road_surface, (road_x_pos + 1600, 150))
 
-def draw_obstacle():
-    random_lane = random.choice(lane_positions)
+def draw_stars():
+    screen.blit(stars_top_surface, (stars_top_x_pos, 0))
+    screen.blit(stars_bottom_surface, (stars_bottom_x_pos, 750))
+
+def draw_obstacle(occupied_lanes, last_spawn_x):
+    available_lanes = [lane for lane in lane_positions if lane not in occupied_lanes]
+    
+    if len(available_lanes) <= 1:
+        return [], last_spawn_x  # Return an empty obstacle list if no valid lane remains
+    
+    # Choose a random lane that's not occupied
+    random_lane = random.choice(available_lanes)
+    occupied_lanes.append(random_lane)  # Mark lane as occupied
     
     if random.random() < 0.2:  # 20% chance for truck with trailer
         random_truck = random.choice(truck_surfaces)
-        trailer = trailer_surface.get_rect(midbottom=(random.randint(1700, 1900), random_lane))
+        trailer_x = random.randint(1700, 1900)
+        if trailer_x < last_spawn_x + 200:  # Ensure spacing between obstacles
+            trailer_x = last_spawn_x + 200  # Push it forward if too close
+        last_spawn_x = trailer_x  # Update last spawn position
+        trailer = trailer_surface.get_rect(midbottom=(trailer_x, random_lane))
         truck = random_truck.get_rect(midbottom=(trailer.right + 30, random_lane))
-        return [(trailer_surface, trailer), (random_truck, truck)]
+        return [(trailer_surface, trailer), (random_truck, truck)], last_spawn_x
     else:
         random_car = random.choice(obstacle_surfaces)
-        obstacle = random_car.get_rect(midbottom=(random.randint(1700, 1900), random_lane))
-        return [(random_car, obstacle)]
+        car_x = random.randint(1700, 1900)
+        if car_x < last_spawn_x + 200:  # Ensure spacing between obstacles
+            car_x = last_spawn_x + 200  # Push it forward if too close
+        last_spawn_x = car_x  # Update last spawn position
+        obstacle = random_car.get_rect(midbottom=(car_x, random_lane))
+        return [(random_car, obstacle)], last_spawn_x
 
 def move_obstacles(obstacles):
     global score
@@ -100,8 +119,17 @@ clock = pygame.time.Clock()
 game_font = pygame.font.Font('Moonstrike-nRqzP.otf', 40)
 
 road_surface = pygame.image.load('assets/road.png').convert()
-road_surface = pygame.transform.scale(road_surface, (1600, 900))
+road_surface = pygame.transform.scale(road_surface, (1600, 600))
+road_y_pos = 0
 road_x_pos = 0
+
+# Load star assets
+stars_top_surface = pygame.image.load('assets/stars_top.png').convert()
+stars_top_surface = pygame.transform.scale(stars_top_surface, (1600, 150))
+stars_bottom_surface = pygame.image.load('assets/stars_bottom.png').convert()
+stars_bottom_surface = pygame.transform.scale(stars_bottom_surface, (1600, 150))
+stars_top_x_pos = 0
+stars_bottom_x_pos = 0
 
 car_surface = pygame.image.load('assets/player_car.png').convert_alpha()
 car_surface = pygame.transform.scale(car_surface, (120, 60))
@@ -131,7 +159,7 @@ pygame.time.set_timer(SPAWN_OBSTACLE, 1200)
 
 lane_positions = [230, 330, 430, 530, 630, 730]
 
-crash_sound = pygame.mixer.Sound('sound/crash.wav')
+crash_sound = pygame.mixer.Sound('sound/crash.mp3')
 honk_sound = pygame.mixer.Sound('sound/honk.wav')
 pygame.mixer.music.load('sound/background_music.wav')
 pygame.mixer.music.play(-1)
@@ -142,6 +170,11 @@ keys = pygame.key.get_pressed()
 score = 0
 high_score = 0
 obstacle_speed = 5
+
+# New variables for increasing obstacles and speed
+max_obstacles = 1  # Start with 1 car
+obstacle_increase_threshold = 5  # Increase cars every 5 points
+max_obstacles_cap = 7  # Maximum number of obstacles
 
 while True:
     for event in pygame.event.get():
@@ -159,21 +192,35 @@ while True:
                     obstacle_list.clear()
                     car_rect.center = (200, 450)
                     score = 0
-                    obstacle_speed = 5
+                    obstacle_speed = 7
+                    max_obstacles = 1  # Reset number of obstacles
 
             if event.key == pygame.K_h:
                 honk_sound.play()
 
         if event.type == SPAWN_OBSTACLE and game_active:
-            obstacle_list.append(draw_obstacle())
+            occupied_lanes = []  # Track which lanes are occupied
+            last_spawn_x = 1700  # Initialize the last spawn position
+            for _ in range(max_obstacles):
+                new_obstacle, last_spawn_x = draw_obstacle(occupied_lanes, last_spawn_x)
+                if new_obstacle:
+                    obstacle_list.append(new_obstacle)
 
     keys = pygame.key.get_pressed()
 
-    road_x_pos -= obstacle_speed
-    draw_road()
-    if road_x_pos <= -1600:
-        road_x_pos = 0
+    road_x_pos -= 6  # Background speed
+    stars_top_x_pos -= 1  # Stars top speed
+    stars_bottom_x_pos -= 1  # Stars bottom speed
 
+    if road_x_pos <= -1600:
+        road_x_pos = 150
+    if stars_top_x_pos <= -1600:
+        stars_top_x_pos = 0
+    if stars_bottom_x_pos <= -1600:
+        stars_bottom_x_pos = 0
+
+    draw_stars()  # Draw stars background
+    draw_road()
     car_movement()
     rotate_car()
     screen.blit(car_surface_rotated, car_rect)
@@ -186,7 +233,12 @@ while True:
 
         display_score()
 
-        obstacle_speed = 5 + score // 5
+        # Increase player car speed with score
+        obstacle_speed = 7 + score // 5
+
+        # Increase the number of obstacles every 5 points, with a cap
+        if score // obstacle_increase_threshold >= max_obstacles and max_obstacles < max_obstacles_cap:
+            max_obstacles += 1
 
         if not game_active:
             on_game_over_screen = True
